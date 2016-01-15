@@ -1,0 +1,22 @@
+tmix 0.1   // mixing time scale
+tres 0.1   // residency time scale
+dt   0.01  // delta time (outer step)
+tend 1     // time to end simulation
+rtol 1.e-4  // relative error tolerance in direct integration
+atol 1.e-5  // absolute error tolerance in direct integration
+etola 1.e-5 // isat error accuracy, ignore for solver other than isat
+n 1000      // number of particles
+dumpfreq  10 // time-steps to dump result
+balanceinit 1000 // initial load balancing step
+balancefreq  10000 // time-steps to balance load
+chem MFC5    // chemistry
+therm therm.dat // thermodynamics data base
+solver vode  // solver
+
+
+stream  mix    CH4  0.5  O2 1 N2 3.76 equil 0 T 300
+stream  mixeq  CH4  0.5  O2 1 N2 3.76 equil 1 T 300
+stream  air   CH4  0    O2 1 N2 3.76 equil 0 T 300
+
+inlet mix
+initial mixeq

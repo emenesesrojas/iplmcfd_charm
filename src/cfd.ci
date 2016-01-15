@@ -1,0 +1,70 @@
+mainmodule cfd {
+
+	readonly CProxy_Main mainProxy;
+	readonly CProxy_Config groupProxy;
+	readonly int chares_x;
+	readonly int chares_y;
+	readonly int chares_z;
+
+	// configuration message
+	message ConfigMessage;
+
+	// Main chare
+	mainchare Main {
+		entry Main(CkArgMsg *m);
+		entry void start();
+		entry [reductiontarget] void finish();
+		entry [reductiontarget] void reduce_dt(double dt);
+		entry [reductiontarget] void reduce_ke(double ke);
+	};
+
+	// Group storing configuration information
+	group Config {
+		entry Config();
+		entry void start(ConfigMessage *m);
+	};
+
+	// Chare array for blocks with particles
+	array [3D] Block {
+		entry Block(void);
+		entry void update_dt(double dt);
+		entry void update_ke(double ke);
+		entry void receive_particles(std::vector<iplmcfd::Particle> particles);
+		entry void ResumeFromSync();
+		entry void start(){
+			serial "prolog" {
+				initialize();
+			}
+			when update_dt(double dt)
+				when update_ke(double ke)
+					serial {
+						initialize_end(dt,ke);
+						output(0);
+					}
+			for(iter_index=0; iter_index<iter_end; iter_index++) {
+				serial { if(thisIndex.x == 0 && thisIndex.y == 0 && thisIndex.z == 0) CkPrintf("Iteration=%d %f\n",iter_index,CmiWallTimer()); }
+				serial "step" { step(iter_index); }
+				forall[block](1:neighbors,1) {
+					when receive_particles(std::vector<iplmcfd::Particle> particles) serial {
+						insert_particles(particles);
+					}
+				}
+				serial "step_middle" { step_middle(iter_index); }
+				when update_dt(double dt)
+					when update_ke(double ke)
+						serial {
+							step_end(dt,ke);
+						} 
+				serial "update_time" { update_time(); }
+				if(iter_index == balance_init || iter_index > balance_init && (iter_index - balance_init) % balance_freq == 0) {
+					serial { AtSync(); }
+					when ResumeFromSync() {}
+				}
+			}
+			serial "epilog" {
+				CkCallback cb(CkReductionTarget(Main, finish), mainProxy);
+				contribute(0, NULL, CkReduction::nop, cb);
+			}
+		};
+	};
+};
